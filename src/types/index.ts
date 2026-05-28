@@ -44,3 +44,14 @@ export type VideoTopic = {
     conclusion: string;
   };
 };
+
+export type Topic = {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  relatedNodes: string[];
+  relatedVideos: string[];
+  order: number;
+  status: "draft" | "published";
+};

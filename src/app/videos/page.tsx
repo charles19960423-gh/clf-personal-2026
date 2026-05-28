@@ -1,8 +1,13 @@
 import { PageHeader } from "@/components/site/page-header";
 import { VideoDatabase } from "@/components/site/video-database";
-import { knowledgeNodes, videoTopics } from "@/lib/mock-data";
+import { getKnowledgeNodes, getVideoTopics } from "@/lib/data";
 
-export default function VideosPage() {
+export default async function VideosPage() {
+  const [knowledgeNodes, videoTopics] = await Promise.all([
+    getKnowledgeNodes(),
+    getVideoTopics(),
+  ]);
+
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
       <PageHeader

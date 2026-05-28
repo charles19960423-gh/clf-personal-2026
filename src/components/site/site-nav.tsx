@@ -5,6 +5,7 @@ const navItems = [
   { href: "/map", label: "认知地图" },
   { href: "/nodes", label: "知识库" },
   { href: "/videos", label: "视频库" },
+  { href: "/topics", label: "专题" },
   { href: "/admin", label: "后台" },
 ];
 

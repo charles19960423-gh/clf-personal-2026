@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SystemBadge } from "@/components/site/system-badge";
-import { getNodeBySlug, getRelatedNodes, knowledgeNodes } from "@/lib/mock-data";
+import { getKnowledgeNodeBySlug, getKnowledgeNodes } from "@/lib/data";
+import type { KnowledgeNode } from "@/types";
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -11,10 +12,21 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const knowledgeNodes = await getKnowledgeNodes();
+
   return knowledgeNodes.map((node) => ({
     slug: node.slug,
   }));
+}
+
+function getRelatedNodes(node: KnowledgeNode, nodes: KnowledgeNode[], limit = 4) {
+  const sameSystemNodes = nodes.filter(
+    (item) => item.systemKey === node.systemKey && item.slug !== node.slug,
+  );
+  const otherNodes = nodes.filter((item) => item.systemKey !== node.systemKey);
+
+  return [...sameSystemNodes, ...otherNodes].slice(0, limit);
 }
 
 export default async function NodeDetailPage({
@@ -23,13 +35,16 @@ export default async function NodeDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const node = getNodeBySlug(slug);
+  const [node, knowledgeNodes] = await Promise.all([
+    getKnowledgeNodeBySlug(slug),
+    getKnowledgeNodes(),
+  ]);
 
   if (!node) {
     notFound();
   }
 
-  const relatedNodes = getRelatedNodes(node);
+  const relatedNodes = getRelatedNodes(node, knowledgeNodes);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-14 sm:px-10 lg:px-16">

@@ -1,8 +1,13 @@
 import { KnowledgeNodeLibrary } from "@/components/site/knowledge-node-library";
 import { PageHeader } from "@/components/site/page-header";
-import { knowledgeNodes, systems } from "@/lib/mock-data";
+import { getKnowledgeNodes, getSystems } from "@/lib/data";
 
-export default function NodesPage() {
+export default async function NodesPage() {
+  const [knowledgeNodes, systems] = await Promise.all([
+    getKnowledgeNodes(),
+    getSystems(),
+  ]);
+
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
       <PageHeader

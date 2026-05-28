@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { SearchBox } from "@/components/site/search-box";
 import type { KnowledgeNode, SystemKey, SystemModule } from "@/types";
 
 type SystemFilter = SystemKey | "all";
@@ -44,9 +45,17 @@ export function KnowledgeNodeLibrary({
     const normalizedQuery = query.trim().toLowerCase();
 
     return orderedNodes.filter((node) => {
+      const system = systems.find((item) => item.key === node.systemKey);
       const matchesQuery =
         !normalizedQuery ||
-        [node.title, node.summary, node.definition, ...node.tags]
+        [
+          node.title,
+          node.summary,
+          node.definition,
+          ...node.tags,
+          system?.name,
+          system?.symbol,
+        ]
           .join(" ")
           .toLowerCase()
           .includes(normalizedQuery);
@@ -56,24 +65,19 @@ export function KnowledgeNodeLibrary({
 
       return matchesQuery && matchesSystem && matchesTag;
     });
-  }, [orderedNodes, query, systemFilter, tagFilter]);
+  }, [orderedNodes, query, systemFilter, systems, tagFilter]);
 
   return (
     <section>
       <div className="border-y border-zinc-300 py-6">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <label className="block">
-            <span className="text-xs uppercase tracking-[0.28em] text-zinc-500">
-              Search
-            </span>
-            <input
-              className="mt-3 w-full border border-zinc-300 bg-transparent px-4 py-3 text-base text-zinc-950 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-950"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="按标题、摘要、标签搜索"
-              type="search"
-              value={query}
-            />
-          </label>
+          <SearchBox
+            nodes={nodes}
+            onSearch={setQuery}
+            placeholder="按标题、摘要、标签、系统搜索"
+            showResults={false}
+            systems={systems}
+          />
 
           <div className="text-sm text-zinc-500">
             当前显示{" "}

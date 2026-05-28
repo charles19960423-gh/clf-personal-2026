@@ -1,18 +1,33 @@
-/**
- * Obsidian 同步脚本占位。
- *
- * 后续计划：
- * 1. 从 Obsidian Vault 读取 Markdown 文件。
- * 2. 使用 gray-matter 解析 frontmatter 与正文内容。
- * 3. 将规范化后的知识节点、视频选题和专题写入 Supabase。
- * 4. 更新站内搜索索引，保证内容可检索、可关联、可追踪。
- *
- * 当前阶段只建立脚本入口，不执行真实同步、不连接 Supabase。
- */
+import {
+  getStandardLocalKnowledgeNodes,
+  printValidationResult,
+  validateLocalKnowledgeNodes,
+} from "./node-validation";
 
-export function syncObsidianPlaceholder() {
-  return {
-    status: "placeholder",
-    message: "Obsidian Markdown sync is reserved for a later stage.",
-  };
+const isWriteMode = process.argv.includes("--write");
+const nodes = getStandardLocalKnowledgeNodes();
+const validationResult = validateLocalKnowledgeNodes(nodes);
+
+if (validationResult.errors.length > 0) {
+  printValidationResult(validationResult);
+  process.exit(1);
 }
+
+if (isWriteMode) {
+  console.log("写入模式尚未启用，请先配置 Supabase 写入逻辑。");
+  process.exit(0);
+}
+
+console.log(`待同步节点总数：${nodes.length}`);
+console.log("");
+
+for (const node of nodes) {
+  const { frontmatter } = node;
+
+  console.log(
+    `- ${frontmatter.title} | slug: ${frontmatter.slug} | module: ${frontmatter.module} | code: ${frontmatter.code} | status: ${frontmatter.status}`,
+  );
+}
+
+console.log("");
+console.log("当前为 dry-run，没有写入 Supabase。");

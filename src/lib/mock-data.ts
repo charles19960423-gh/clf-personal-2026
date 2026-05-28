@@ -1,4 +1,10 @@
-import type { KnowledgeNode, SystemKey, SystemModule, VideoTopic } from "@/types";
+import type {
+  KnowledgeNode,
+  SystemKey,
+  SystemModule,
+  Topic,
+  VideoTopic,
+} from "@/types";
 
 type NodeInput = Omit<KnowledgeNode, "systemKey">;
 
@@ -392,12 +398,80 @@ export const videoTopics: VideoTopic[] = [
   },
 ];
 
+export const topics: Topic[] = [
+  {
+    id: "topic-001",
+    title: "新手从这里开始",
+    slug: "start-here",
+    description: "先建立五大系统的总体坐标，再进入核心概念与个人路径。",
+    relatedNodes: [
+      "being-yourself",
+      "individual-system",
+      "country-order",
+      "family-system",
+      "value-creation",
+    ],
+    relatedVideos: ["video-006", "video-005"],
+    order: 1,
+    status: "published",
+  },
+  {
+    id: "topic-002",
+    title: "理解人性",
+    slug: "understand-human-nature",
+    description: "从内在秩序、身份、选择与行动系统，看见人的底层运行。",
+    relatedNodes: [
+      "being-yourself",
+      "inner-order",
+      "individual-system",
+      "identity-fluidity",
+    ],
+    relatedVideos: ["video-001", "video-002", "video-005"],
+    order: 2,
+    status: "published",
+  },
+  {
+    id: "topic-003",
+    title: "理解关系",
+    slug: "understand-relationships",
+    description: "进入家庭、亲密关系、族群记忆与组织协作中的关系结构。",
+    relatedNodes: [
+      "family-system",
+      "intergenerational-pattern",
+      "intimacy-order",
+      "ethnos-memory",
+      "organization-structure",
+    ],
+    relatedVideos: ["video-003", "video-004"],
+    order: 3,
+    status: "published",
+  },
+  {
+    id: "topic-004",
+    title: "成为自己",
+    slug: "being-yourself-path",
+    description: "围绕 BEING YOURSELF 建立从自我识别到系统行动的成长路径。",
+    relatedNodes: ["being-yourself", "inner-order", "individual-system"],
+    relatedVideos: ["video-001", "video-002", "video-005"],
+    order: 4,
+    status: "published",
+  },
+];
+
 export function getSystemByKey(key: KnowledgeNode["systemKey"]) {
   return systems.find((system) => system.key === key);
 }
 
 export function getNodeBySlug(slug: string) {
   return knowledgeNodes.find((node) => node.slug === slug);
+}
+
+export function getTopicBySlug(slug: string) {
+  return topics.find((topic) => topic.slug === slug);
+}
+
+export function getVideoTopicById(id: string) {
+  return videoTopics.find((topic) => topic.id === id);
 }
 
 export function getRelatedNodes(node: KnowledgeNode, limit = 4) {
