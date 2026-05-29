@@ -16,6 +16,10 @@ create table if not exists public.knowledge_nodes (
   slug text unique,
   title text not null,
   module text,
+  parent_code text,
+  level integer,
+  source text default 'supabase',
+  file_path text,
   summary text,
   definition text,
   core_idea text,
@@ -68,11 +72,27 @@ create table if not exists public.tags (
 
 create index if not exists knowledge_nodes_slug_idx on public.knowledge_nodes (slug);
 create index if not exists knowledge_nodes_module_idx on public.knowledge_nodes (module);
+create index if not exists knowledge_nodes_parent_code_idx on public.knowledge_nodes (parent_code);
+create index if not exists knowledge_nodes_level_idx on public.knowledge_nodes (level);
 create index if not exists knowledge_nodes_status_idx on public.knowledge_nodes (status);
 create index if not exists video_topics_status_idx on public.video_topics (status);
 create index if not exists topics_slug_idx on public.topics (slug);
 create index if not exists topics_status_idx on public.topics (status);
 create index if not exists tags_type_idx on public.tags (type);
+
+grant usage on schema public to anon, authenticated;
+
+grant select on public.knowledge_nodes to anon, authenticated;
+grant insert, update, delete on public.knowledge_nodes to authenticated;
+
+grant select on public.video_topics to anon, authenticated;
+grant insert, update, delete on public.video_topics to authenticated;
+
+grant select on public.topics to anon, authenticated;
+grant insert, update, delete on public.topics to authenticated;
+
+grant select on public.tags to anon, authenticated;
+grant insert, update, delete on public.tags to authenticated;
 
 drop trigger if exists set_knowledge_nodes_updated_at on public.knowledge_nodes;
 create trigger set_knowledge_nodes_updated_at

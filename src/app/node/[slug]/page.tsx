@@ -21,12 +21,20 @@ export async function generateStaticParams() {
 }
 
 function getRelatedNodes(node: KnowledgeNode, nodes: KnowledgeNode[], limit = 4) {
+  const explicitRelations = nodes.filter((item) =>
+    node.relations?.includes(item.slug),
+  );
   const sameSystemNodes = nodes.filter(
     (item) => item.systemKey === node.systemKey && item.slug !== node.slug,
   );
   const otherNodes = nodes.filter((item) => item.systemKey !== node.systemKey);
 
-  return [...sameSystemNodes, ...otherNodes].slice(0, limit);
+  return [...explicitRelations, ...sameSystemNodes, ...otherNodes]
+    .filter(
+      (item, index, list) =>
+        list.findIndex((candidate) => candidate.slug === item.slug) === index,
+    )
+    .slice(0, limit);
 }
 
 export default async function NodeDetailPage({
@@ -45,6 +53,21 @@ export default async function NodeDetailPage({
   }
 
   const relatedNodes = getRelatedNodes(node, knowledgeNodes);
+  const parentNode = node.parentCode
+    ? knowledgeNodes.find((item) => item.code === node.parentCode)
+    : undefined;
+  const childNodes = knowledgeNodes
+    .filter((item) => item.parentCode === node.code)
+    .sort((a, b) => a.code.localeCompare(b.code, "zh-CN"));
+  const siblingNodes = knowledgeNodes
+    .filter(
+      (item) =>
+        item.parentCode === node.parentCode &&
+        item.slug !== node.slug &&
+        Boolean(node.parentCode),
+    )
+    .sort((a, b) => a.code.localeCompare(b.code, "zh-CN"))
+    .slice(0, 6);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-14 sm:px-10 lg:px-16">
@@ -141,6 +164,15 @@ export default async function NodeDetailPage({
 
           <aside className="space-y-10 lg:border-l lg:border-zinc-300 lg:pl-8">
             <section>
+              <SectionTitle>结构位置</SectionTitle>
+              <div className="mt-5 space-y-4">
+                <StructureLink label="上级节点" node={parentNode} />
+                <StructureNodeList label="下级节点" nodes={childNodes} />
+                <StructureNodeList label="同级节点" nodes={siblingNodes} />
+              </div>
+            </section>
+
+            <section>
               <SectionTitle>关联节点</SectionTitle>
               <div className="mt-5 space-y-3">
                 {relatedNodes.map((relatedNode) => (
@@ -180,5 +212,66 @@ export default async function NodeDetailPage({
         </div>
       </article>
     </main>
+  );
+}
+
+function StructureLink({
+  label,
+  node,
+}: {
+  label: string;
+  node: KnowledgeNode | undefined;
+}) {
+  return (
+    <div className="border border-zinc-300 p-4">
+      <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
+        {label}
+      </p>
+      {node ? (
+        <Link
+          className="mt-3 block text-sm leading-6 text-zinc-700 hover:text-zinc-950"
+          href={`/node/${node.slug}`}
+        >
+          <span className="font-mono text-xs text-zinc-500">{node.code}</span>
+          <span className="mt-1 block">{node.title}</span>
+        </Link>
+      ) : (
+        <p className="mt-3 text-sm text-zinc-500">无</p>
+      )}
+    </div>
+  );
+}
+
+function StructureNodeList({
+  label,
+  nodes,
+}: {
+  label: string;
+  nodes: KnowledgeNode[];
+}) {
+  return (
+    <div className="border border-zinc-300 p-4">
+      <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">
+        {label}
+      </p>
+      {nodes.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {nodes.map((node) => (
+            <Link
+              className="block text-sm leading-6 text-zinc-700 hover:text-zinc-950"
+              href={`/node/${node.slug}`}
+              key={node.slug}
+            >
+              <span className="font-mono text-xs text-zinc-500">
+                {node.code}
+              </span>
+              <span className="ml-2">{node.title}</span>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-zinc-500">无</p>
+      )}
+    </div>
   );
 }

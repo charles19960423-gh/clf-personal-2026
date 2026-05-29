@@ -6,6 +6,8 @@ import { SearchBox } from "@/components/site/search-box";
 import type { KnowledgeNode, SystemKey, SystemModule } from "@/types";
 
 type SystemFilter = SystemKey | "all";
+type LevelFilter = number | "all";
+type SourceFilter = NonNullable<KnowledgeNode["source"]> | "all";
 
 type KnowledgeNodeLibraryProps = {
   nodes: KnowledgeNode[];
@@ -18,7 +20,10 @@ export function KnowledgeNodeLibrary({
 }: KnowledgeNodeLibraryProps) {
   const [query, setQuery] = useState("");
   const [systemFilter, setSystemFilter] = useState<SystemFilter>("human");
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [tagFilter, setTagFilter] = useState<string>("all");
+  const [isTagFilterOpen, setIsTagFilterOpen] = useState(false);
 
   const tags = useMemo(
     () => Array.from(new Set(nodes.flatMap((node) => node.tags))).sort(),
@@ -61,11 +66,23 @@ export function KnowledgeNodeLibrary({
           .includes(normalizedQuery);
       const matchesSystem =
         systemFilter === "all" || node.systemKey === systemFilter;
+      const matchesLevel =
+        levelFilter === "all" || node.level === levelFilter;
+      const matchesSource =
+        sourceFilter === "all" || node.source === sourceFilter;
       const matchesTag = tagFilter === "all" || node.tags.includes(tagFilter);
 
-      return matchesQuery && matchesSystem && matchesTag;
+      return (
+        matchesQuery &&
+        matchesSystem &&
+        matchesLevel &&
+        matchesSource &&
+        matchesTag
+      );
     });
-  }, [orderedNodes, query, systemFilter, systems, tagFilter]);
+  }, [levelFilter, orderedNodes, query, sourceFilter, systemFilter, systems, tagFilter]);
+
+  const currentTagLabel = tagFilter === "all" ? "未筛选" : `当前：${tagFilter}`;
 
   return (
     <section>
@@ -104,25 +121,85 @@ export function KnowledgeNodeLibrary({
           ))}
         </div>
 
-        <div className="mt-6">
-          <p className="mb-3 text-xs uppercase tracking-[0.28em] text-zinc-500">
-            Tags
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <FilterButton
-              isActive={tagFilter === "all"}
-              label="全部标签"
-              onClick={() => setTagFilter("all")}
-            />
-            {tags.map((tag) => (
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <div>
+            <p className="mb-3 text-xs uppercase tracking-[0.28em] text-zinc-500">
+              Level
+            </p>
+            <div className="flex flex-wrap gap-2">
               <FilterButton
-                isActive={tagFilter === tag}
-                key={tag}
-                label={tag}
-                onClick={() => setTagFilter(tag)}
+                isActive={levelFilter === "all"}
+                label="全部层级"
+                onClick={() => setLevelFilter("all")}
               />
-            ))}
+              {[1, 2, 3, 4].map((level) => (
+                <FilterButton
+                  isActive={levelFilter === level}
+                  key={level}
+                  label={`${level} 级节点`}
+                  onClick={() => setLevelFilter(level)}
+                />
+              ))}
+            </div>
           </div>
+
+          <div>
+            <p className="mb-3 text-xs uppercase tracking-[0.28em] text-zinc-500">
+              Source
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <FilterButton
+                isActive={sourceFilter === "all"}
+                label="全部来源"
+                onClick={() => setSourceFilter("all")}
+              />
+              {(["supabase", "markdown", "mock"] as const).map((source) => (
+                <FilterButton
+                  isActive={sourceFilter === source}
+                  key={source}
+                  label={getSourceLabel(source)}
+                  onClick={() => setSourceFilter(source)}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-zinc-200 pt-5">
+          <button
+            aria-expanded={isTagFilterOpen}
+            className="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+            onClick={() => setIsTagFilterOpen((value) => !value)}
+            type="button"
+          >
+            <span className="text-xs uppercase tracking-[0.28em] text-zinc-500">
+              Tags
+            </span>
+            <span className="flex flex-wrap items-center gap-3 text-sm text-zinc-500">
+              <span>{currentTagLabel}</span>
+              <span className="border border-zinc-300 px-3 py-2 text-xs text-zinc-700">
+                {isTagFilterOpen ? "收起标签" : "展开标签"}
+              </span>
+            </span>
+          </button>
+
+          {isTagFilterOpen ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <FilterButton
+                isActive={tagFilter === "all"}
+                label="全部标签"
+                onClick={() => setTagFilter("all")}
+              />
+              {tags.map((tag) => (
+                <FilterButton
+                  isActive={tagFilter === tag}
+                  key={tag}
+                  label={tag}
+                  onClick={() => setTagFilter(tag)}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -198,6 +275,18 @@ function KnowledgeNodeCard({
         </span>
       </div>
 
+      <div className="mt-5 flex flex-wrap gap-2">
+        <span className="border border-zinc-300 px-3 py-1 text-xs text-zinc-500">
+          Level {node.level ?? "-"}
+        </span>
+        <span className="border border-zinc-300 px-3 py-1 text-xs text-zinc-500">
+          Parent {node.parentCode ?? "-"}
+        </span>
+        <span className="border border-zinc-300 px-3 py-1 text-xs text-zinc-500">
+          {getSourceLabel(node.source)}
+        </span>
+      </div>
+
       <p className="mt-6 text-sm leading-7 text-zinc-600">
         {node.definition || node.summary}
       </p>
@@ -215,7 +304,7 @@ function KnowledgeNodeCard({
 
       <div className="mt-8 flex flex-col gap-4 border-t border-zinc-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
         <span className="w-fit border border-zinc-300 px-3 py-1 text-xs text-zinc-500">
-          已发布
+          {node.status === "draft" ? "草稿" : "已发布"}
         </span>
         <Link
           className="w-fit border border-zinc-950 px-4 py-2 text-sm text-zinc-950 transition-colors hover:bg-zinc-950 hover:text-white"
@@ -226,4 +315,16 @@ function KnowledgeNodeCard({
       </div>
     </article>
   );
+}
+
+function getSourceLabel(source: KnowledgeNode["source"] | undefined) {
+  if (source === "supabase") {
+    return "Supabase";
+  }
+
+  if (source === "markdown") {
+    return "Markdown";
+  }
+
+  return "Mock";
 }

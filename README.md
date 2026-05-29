@@ -18,6 +18,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - Vercel 部署准备：[docs/vercel-deploy.md](docs/vercel-deploy.md)
 - Supabase 接入准备：[docs/supabase-setup.md](docs/supabase-setup.md)
+- 后台写入测试：[docs/admin-write-test.md](docs/admin-write-test.md)
 - 版本说明：[docs/versioning.md](docs/versioning.md)
 
 ## Git 使用说明
@@ -40,7 +41,7 @@ git tag v0.1.0
 
 ## Obsidian 内容规范
 
-本项目预留从 Obsidian Markdown 同步内容的能力。当前阶段只建立本地内容目录、Markdown 规范和解析工具，不替换现有 mock 数据，不接入 Supabase。
+本项目预留从 Obsidian Markdown 同步内容的能力。当前阶段已经支持把标准 Markdown 知识节点接入前台统一数据层，并与知识库、认知地图、节点详情页联动。
 
 ### 内容目录
 
@@ -68,6 +69,17 @@ definition: 一个人从外部评价系统回到内部生命系统的过程。
 status: published
 ---
 ```
+
+层级型节点可以继续补充结构字段：
+
+```md
+parentCode: 01-01
+level: 3
+relations:
+  - country-01-01
+```
+
+如果未显式填写 `parentCode` 与 `level`，系统会优先根据 `code` 自动推导父级与层级。例如 `01-01-01-01` 会被识别为 `01-01-01` 的子节点，并归入“国”模块。
 
 ### 正文结构
 
@@ -107,7 +119,7 @@ content/nodes/self-narrative.md
 
 ### 如何校验 Markdown 知识节点
 
-可以使用校验脚本检查 `content/nodes` 第一层的 Markdown 知识节点是否符合基础规范：
+可以使用校验脚本检查标准 Markdown 知识节点是否符合基础规范：
 
 ```bash
 npm run validate-nodes
@@ -129,7 +141,7 @@ npm run validate-nodes
 npm run sync-obsidian
 ```
 
-脚本会读取 `content/nodes` 第一层的标准 Markdown 节点，复用节点校验逻辑，输出待同步节点总数，以及每个节点的 `title`、`slug`、`module`、`code`、`status`。
+脚本会读取标准 Markdown 节点，复用节点校验逻辑，输出待同步节点总数，以及每个节点的 `title`、`slug`、`module`、`code`、`status`。
 
 也可以传入写入参数：
 
@@ -147,8 +159,9 @@ npm run sync-obsidian -- --write
 
 - `src/lib/supabase/client.ts`
 - `src/lib/supabase/queries.ts`
+- `src/lib/supabase/mutations.ts`
 
-页面目前仍然使用 `src/lib/mock-data.ts`，暂时没有替换为 Supabase 数据源。
+页面读取已通过 `src/lib/data.ts` 统一封装。知识节点采用统一合并数据层：Mock 提供基础兜底，Markdown 接入本地 Obsidian 内容，Supabase 覆盖同 slug 的线上内容。
 
 ### 创建 Supabase 项目
 
@@ -200,14 +213,25 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 如果没有配置环境变量，Supabase client 会返回 `null`，查询函数会返回空数组或 `null`，不会影响 `npm run build`。
 
+### 知识节点后台写入
+
+`/admin/nodes` 已接入知识节点创建与更新的 Server Action：
+
+- 未配置 `.env.local` 时，表单不会写入数据库，会在页面提示 Supabase 未配置。
+- 配置 Supabase 环境变量并执行 `supabase/schema.sql` 后，表单会写入 `knowledge_nodes`。
+- 当前只接入知识节点写入，不包含登录权限、Markdown 写回或视频/专题写入。
+
 ## 数据源策略
 
 项目现在通过 `src/lib/data.ts` 统一读取页面数据。
 
-- 知识节点数据源优先级：Supabase → Markdown → Mock。
-- 默认可以使用 `content/nodes/*.md` 中的 Markdown 节点作为前台知识库来源。
-- 配置 Supabase 环境变量后，会优先调用 `src/lib/supabase/queries.ts` 读取 Supabase。
-- 如果 Supabase 未配置、查询失败、返回空数组或返回 `null`，会读取本地 Markdown。
-- 如果本地 Markdown 也没有数据，会自动回退到 `src/lib/mock-data.ts` 中的 mock 数据。
+- 知识节点采用合并策略：Mock 基础数据 → Markdown 本地内容 → Supabase 线上内容。
+- 合并时以 `slug` 为唯一键；同一个 `slug` 下，Supabase 优先级最高，Markdown 次之，Mock 最后兜底。
+- Markdown 节点必须包含标准 frontmatter：`slug`、`title`、`module`、`code`、`summary`、`definition`、`status`。
+- 认知地图会根据 `code` 自动识别模块、父级和层级；例如 `01` 归入“国”，`01-01-01` 会挂到 `01-01` 下面。
+- 当前已清洗的国模块标准内容位于 `content/nodes/20260528清洗/01-国模块`。
+- `/nodes` 支持按系统、标签、层级和数据源筛选。
+- `/map` 支持按系统展示 Obsidian 编号形成的节点树。
+- `/node/[slug]` 支持展示上级节点、下级节点、同级节点和显式关联节点。
 - 视频选题和专题暂时仍保持 Supabase → Mock 的数据源策略，不从 Markdown 读取。
 - 当前页面展示逻辑不依赖真实 Supabase 项目；没有 `.env.local` 也可以正常开发和构建。

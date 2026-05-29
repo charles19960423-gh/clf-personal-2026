@@ -1,6 +1,6 @@
 # Supabase Schema Design
 
-当前目录只保存 Supabase 接入前的数据库设计，不安装 Supabase SDK，不创建 `.env`，也不改变现有页面的数据来源。
+当前目录保存 Supabase 数据库结构、示例数据与权限策略。项目已经接入 Supabase 读取与知识节点后台写入通道，但默认不创建 `.env.local`，线上部署也可以继续回退到 Markdown / Mock 数据。
 
 ## Tables
 
@@ -13,6 +13,10 @@
 - `slug`: 前端路由与 Obsidian 文件的稳定标识。
 - `title`: 节点标题。
 - `module`: 所属系统，如 `国`、`族`、`家`、`企`、`人`。
+- `parent_code`: 父级节点编号，用于认知地图树状结构。
+- `level`: 节点层级，由 `code` 段数推导。
+- `source`: 数据来源，如 `supabase`、`markdown`、`mock`。
+- `file_path`: Obsidian Markdown 本地文件路径，用于同步追踪。
 - `summary`: 节点摘要。
 - `definition`: 一句话定义。
 - `core_idea`: 核心观点文本。
@@ -68,13 +72,24 @@
 
 `knowledge_nodes`、`video_topics`、`topics`、`tags` 都挂载了 `set_updated_at` 触发器。每次更新记录时，`updated_at` 会自动写入当前时间。
 
+## Row Level Security
+
+`policies.sql` 用于上线前收紧数据库权限：
+
+- 匿名用户可读取 `published` 状态的知识节点、视频选题和专题。
+- 匿名用户可读取标签。
+- authenticated 用户预留管理权限。
+- 登录权限完成前，不建议在线上配置 Supabase 环境变量并开放后台写入。
+
+如果只是在本地隔离测试项目中验证 `/admin/nodes` 写入，可以先不执行 `policies.sql`；正式线上项目应先执行权限策略，再接入登录。
+
 ## Obsidian Markdown Sync Plan
 
 未来同步流程：
 
 1. 从 Obsidian Vault 读取 `content/nodes/*.md`。
 2. 使用 `gray-matter` 解析 frontmatter。
-3. 将 `slug`、`title`、`module`、`summary`、`definition`、`tags` 等字段映射到 `knowledge_nodes`。
+3. 将 `slug`、`title`、`module`、`code`、`parent_code`、`level`、`source`、`file_path`、`summary`、`definition`、`tags` 等字段映射到 `knowledge_nodes`。
 4. 将正文中的章节解析为 `core_idea`、`explanation`、`examples` 等字段。
 5. 以 `slug` 为稳定键执行 upsert。
 6. 同步完成后更新搜索索引。

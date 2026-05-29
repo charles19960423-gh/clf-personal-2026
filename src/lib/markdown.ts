@@ -8,7 +8,10 @@ export type MarkdownFrontmatter = {
   title?: string;
   module?: string;
   code?: string;
+  parentCode?: string;
+  level?: number;
   tags?: string[];
+  relations?: string[];
   summary?: string;
   definition?: string;
   status?: string;

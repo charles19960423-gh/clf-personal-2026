@@ -1,10 +1,13 @@
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { AdminNodeManager } from "@/components/admin/admin-node-manager";
 import { AdminPageHeader } from "@/components/admin/ui/admin-page-header";
-import { getKnowledgeNodes, getSystems } from "@/lib/data";
+import { getAdminKnowledgeNodes, getAdminSystems } from "@/lib/admin-data";
 
 export default async function AdminNodesPage() {
-  const [nodes, systems] = await Promise.all([getKnowledgeNodes(), getSystems()]);
+  const [nodes, systems] = await Promise.all([
+    getAdminKnowledgeNodes(),
+    getAdminSystems(),
+  ]);
 
   return (
     <AdminLayout>

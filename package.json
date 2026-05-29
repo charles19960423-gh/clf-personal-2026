@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "apply-framework-definitions": "node --experimental-strip-types scripts/apply-framework-definitions.ts",
     "build": "next build",
+    "clean-system-modules": "node --experimental-strip-types scripts/clean-system-modules.ts",
     "create-node": "tsx scripts/create-node.ts",
     "predeploy": "npm run validate-nodes && npm run sync-obsidian && npm run lint && npm run build",
     "sync-obsidian": "tsx scripts/sync-obsidian.ts",
@@ -13,9 +15,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "gray-matter": "^4.0.3",
     "next": "16.2.6",
+    "pinyin-pro": "^3.28.1",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

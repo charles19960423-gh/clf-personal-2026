@@ -5,6 +5,12 @@ export type KnowledgeNode = {
   code: string;
   title: string;
   systemKey: SystemKey;
+  module?: string;
+  parentCode?: string;
+  level?: number;
+  children?: KnowledgeNode[];
+  source?: "supabase" | "markdown" | "mock";
+  filePath?: string;
   summary: string;
   definition: string;
   coreIdea: string[];
@@ -13,6 +19,10 @@ export type KnowledgeNode = {
   videoAngles: string[];
   readingPath: string[];
   tags: string[];
+  relations?: string[];
+  status?: "draft" | "published" | string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type SystemModule = {

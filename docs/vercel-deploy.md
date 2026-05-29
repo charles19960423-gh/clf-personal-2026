@@ -77,7 +77,14 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
-配置后重新部署即可让前台优先读取 Supabase 数据。
+配置后重新部署即可让前台优先读取 Supabase 数据，并让后台登录保护生效。
+
+上线注意：
+
+- 配置 Vercel 环境变量前，请先在 Supabase SQL Editor 执行 `supabase/policies.sql`。
+- 在 Supabase Authentication 中手动创建管理员用户。
+- 不要配置 service role key，也不要把高权限密钥写入 `NEXT_PUBLIC_*`。
+- 当前 `/admin/nodes` 已有知识节点写入通道；生产环境必须依赖登录 session 和 RLS 策略共同保护。
 
 ## E. 部署后检查路径
 
@@ -90,11 +97,16 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 - `/topics`
 - `/admin`
 
-重点确认首页、认知地图、知识库、视频库、专题列表和后台总览均能正常打开。
+重点确认首页、认知地图、知识库、视频库、专题列表均能正常打开。访问 `/admin` 时：
+
+- 未配置 Supabase 环境变量：应跳转到登录页并提示未配置。
+- 已配置 Supabase 环境变量：未登录应跳转登录页，登录后进入后台。
 
 ## F. 当前注意事项
 
-- 后台表单暂时是静态占位，不会新增、编辑或保存数据。
+- `/admin/nodes` 已接入知识节点创建与编辑的 Supabase 写入通道，但应先用于本地测试。
+- `/admin` 与后台子页面已经启用 Supabase Auth 登录保护。
+- 其他后台表单暂时是静态占位，不会新增、编辑或保存数据。
 - Markdown 内容来自项目内 `content/nodes`。
 - Supabase 未配置时，会自动回退到 Markdown / Mock 数据。
 - `npm run sync-obsidian` 当前只做 dry-run 预览，不会写入 Supabase。

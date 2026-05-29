@@ -22,11 +22,15 @@ import type {
   VideoTopic,
 } from "@/types";
 
-type SupabaseKnowledgeNode = {
+export type SupabaseKnowledgeNode = {
   code?: string | null;
   slug?: string | null;
   title?: string | null;
   module?: string | null;
+  parent_code?: string | null;
+  level?: number | null;
+  source?: string | null;
+  file_path?: string | null;
   summary?: string | null;
   definition?: string | null;
   core_idea?: string | null;
@@ -35,6 +39,8 @@ type SupabaseKnowledgeNode = {
   tags?: string[] | null;
   relations?: string[] | null;
   status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 type SupabaseVideoTopic = {
@@ -72,6 +78,11 @@ type MarkdownSections = {
 };
 
 const moduleToSystemKey: Record<string, SystemKey> = {
+  "01": "country",
+  "02": "ethnos",
+  "03": "family",
+  "04": "enterprise",
+  "05": "human",
   国: "country",
   国家系统: "country",
   族: "ethnos",
@@ -83,6 +94,50 @@ const moduleToSystemKey: Record<string, SystemKey> = {
   人: "human",
   个体系统: "human",
 };
+
+function getStructureCode(code: string | null | undefined) {
+  const match = code?.match(/^(\d{2}(?:-\d{2})*)/);
+
+  return match?.[1];
+}
+
+function getModuleFromCode(code: string | null | undefined) {
+  const rootCode = getStructureCode(code)?.split("-")[0];
+
+  if (!rootCode) {
+    return undefined;
+  }
+
+  const codeToModule: Record<string, string> = {
+    "01": "国",
+    "02": "族",
+    "03": "家",
+    "04": "企",
+    "05": "人",
+  };
+
+  return codeToModule[rootCode];
+}
+
+function getParentCode(code: string | null | undefined) {
+  const structureCode = getStructureCode(code);
+
+  if (!structureCode || !structureCode.includes("-")) {
+    return undefined;
+  }
+
+  return structureCode.split("-").slice(0, -1).join("-");
+}
+
+function getLevel(code: string | null | undefined) {
+  const structureCode = getStructureCode(code);
+
+  if (!structureCode) {
+    return undefined;
+  }
+
+  return structureCode.split("-").length;
+}
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -107,7 +162,11 @@ function normalizeSystemKey(module: string | null | undefined): SystemKey {
   return moduleToSystemKey[module] ?? "human";
 }
 
-function normalizeKnowledgeNode(row: SupabaseKnowledgeNode): KnowledgeNode | null {
+function normalizeSystemKeyFromNode(module: string | null | undefined, code?: string | null) {
+  return normalizeSystemKey(module ?? getModuleFromCode(code));
+}
+
+export function normalizeKnowledgeNode(row: SupabaseKnowledgeNode): KnowledgeNode | null {
   if (!row.slug || !row.title) {
     return null;
   }
@@ -116,7 +175,12 @@ function normalizeKnowledgeNode(row: SupabaseKnowledgeNode): KnowledgeNode | nul
     slug: row.slug,
     code: row.code ?? row.slug,
     title: row.title,
-    systemKey: normalizeSystemKey(row.module),
+    systemKey: normalizeSystemKeyFromNode(row.module, row.code),
+    module: row.module ?? getModuleFromCode(row.code),
+    parentCode: row.parent_code ?? getParentCode(row.code),
+    level: row.level ?? getLevel(row.code),
+    source: row.source === "markdown" || row.source === "mock" ? row.source : "supabase",
+    filePath: row.file_path ?? undefined,
     summary: row.summary ?? "",
     definition: row.definition ?? row.summary ?? "",
     coreIdea: toStringArray(row.core_idea),
@@ -125,6 +189,10 @@ function normalizeKnowledgeNode(row: SupabaseKnowledgeNode): KnowledgeNode | nul
     videoAngles: [],
     readingPath: [],
     tags: row.tags ?? [],
+    relations: row.relations ?? [],
+    status: row.status ?? "draft",
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
@@ -164,7 +232,15 @@ function parseMarkdownSections(content: string): MarkdownSections {
 function normalizeMarkdownNode(node: LocalMarkdownNode): KnowledgeNode | null {
   const { content, frontmatter } = node;
 
-  if (!frontmatter.slug || !frontmatter.title) {
+  if (
+    !frontmatter.slug ||
+    !frontmatter.title ||
+    !frontmatter.module ||
+    !frontmatter.code ||
+    !frontmatter.summary ||
+    !frontmatter.definition ||
+    !frontmatter.status
+  ) {
     return null;
   }
 
@@ -176,7 +252,12 @@ function normalizeMarkdownNode(node: LocalMarkdownNode): KnowledgeNode | null {
     slug: frontmatter.slug,
     code: frontmatter.code ?? frontmatter.id ?? frontmatter.slug,
     title: frontmatter.title,
-    systemKey: normalizeSystemKey(frontmatter.module),
+    systemKey: normalizeSystemKeyFromNode(frontmatter.module, frontmatter.code),
+    module: frontmatter.module ?? getModuleFromCode(frontmatter.code),
+    parentCode: frontmatter.parentCode ?? getParentCode(frontmatter.code),
+    level: frontmatter.level ?? getLevel(frontmatter.code),
+    source: "markdown",
+    filePath: node.filePath,
     summary,
     definition,
     coreIdea: sections.coreIdea.length > 0 ? sections.coreIdea : [definition],
@@ -185,10 +266,11 @@ function normalizeMarkdownNode(node: LocalMarkdownNode): KnowledgeNode | null {
     videoAngles: sections.videoAngles,
     readingPath: sections.readingPath,
     tags: frontmatter.tags ?? [],
+    status: frontmatter.status ?? "draft",
   };
 }
 
-function getMarkdownKnowledgeNodes(): KnowledgeNode[] {
+export function getMarkdownKnowledgeNodes(): KnowledgeNode[] {
   try {
     return getLocalKnowledgeNodes()
       .map(normalizeMarkdownNode)
@@ -196,6 +278,45 @@ function getMarkdownKnowledgeNodes(): KnowledgeNode[] {
   } catch {
     return [];
   }
+}
+
+function withMockSource(node: KnowledgeNode): KnowledgeNode {
+  return {
+    ...node,
+    module:
+      node.module ??
+      mockSystems.find((system) => system.key === node.systemKey)?.symbol,
+    parentCode: node.parentCode ?? getParentCode(node.code),
+    level: node.level ?? getLevel(node.code),
+    source: node.source ?? "mock",
+  };
+}
+
+function mergeKnowledgeNodes(
+  supabaseNodes: KnowledgeNode[],
+  markdownNodes: KnowledgeNode[],
+  mockNodes: KnowledgeNode[],
+) {
+  const nodesBySlug = new Map<string, KnowledgeNode>();
+
+  for (const node of mockNodes.map(withMockSource)) {
+    nodesBySlug.set(node.slug, node);
+  }
+
+  for (const node of markdownNodes) {
+    nodesBySlug.set(node.slug, node);
+  }
+
+  for (const node of supabaseNodes) {
+    nodesBySlug.set(node.slug, node);
+  }
+
+  return Array.from(nodesBySlug.values()).sort((a, b) =>
+    (getStructureCode(a.code) ?? a.code).localeCompare(
+      getStructureCode(b.code) ?? b.code,
+      "zh-CN",
+    ),
+  );
 }
 
 function normalizeVideoStatus(status: string | null | undefined): VideoTopic["status"] {
@@ -256,7 +377,7 @@ function normalizeTopic(row: SupabaseTopic): Topic | null {
   };
 }
 
-function isKnowledgeNode(node: KnowledgeNode | null): node is KnowledgeNode {
+export function isKnowledgeNode(node: KnowledgeNode | null): node is KnowledgeNode {
   return node !== null;
 }
 
@@ -271,14 +392,9 @@ function isTopic(topic: Topic | null): topic is Topic {
 export async function getKnowledgeNodes(): Promise<KnowledgeNode[]> {
   const rows = (await getKnowledgeNodesFromSupabase()) as SupabaseKnowledgeNode[];
   const nodes = rows.map(normalizeKnowledgeNode).filter(isKnowledgeNode);
-
-  if (nodes.length > 0) {
-    return nodes;
-  }
-
   const markdownNodes = getMarkdownKnowledgeNodes();
 
-  return markdownNodes.length > 0 ? markdownNodes : mockKnowledgeNodes;
+  return mergeKnowledgeNodes(nodes, markdownNodes, mockKnowledgeNodes);
 }
 
 export async function getKnowledgeNodeBySlug(
@@ -295,7 +411,7 @@ export async function getKnowledgeNodeBySlug(
   return (
     node ??
     markdownNode ??
-    mockKnowledgeNodes.find((item) => item.slug === slug) ??
+    mockKnowledgeNodes.map(withMockSource).find((item) => item.slug === slug) ??
     null
   );
 }
@@ -321,4 +437,87 @@ export async function getSystems(): Promise<SystemModule[]> {
     ...system,
     nodes: nodes.filter((node) => node.systemKey === system.key),
   }));
+}
+
+export async function getKnowledgeTree(): Promise<KnowledgeNode[]> {
+  const nodes = await getKnowledgeNodes();
+  const nodesByCode = new Map<string, KnowledgeNode>(
+    nodes.map((node) => [node.code, { ...node, children: [] }]),
+  );
+  const nodesByStructureCode = new Map<string, KnowledgeNode>();
+  const roots: KnowledgeNode[] = [];
+
+  for (const node of nodesByCode.values()) {
+    const structureCode = getStructureCode(node.code);
+
+    if (structureCode) {
+      nodesByStructureCode.set(structureCode, node);
+    }
+  }
+
+  for (const node of nodesByCode.values()) {
+    const parent =
+      (node.parentCode ? nodesByCode.get(node.parentCode) : undefined) ??
+      (node.parentCode
+        ? nodesByStructureCode.get(node.parentCode)
+        : undefined);
+
+    if (parent) {
+      parent.children?.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots.sort((a, b) =>
+    (getStructureCode(a.code) ?? a.code).localeCompare(
+      getStructureCode(b.code) ?? b.code,
+      "zh-CN",
+    ),
+  );
+}
+
+export async function getNodeChildren(code: string): Promise<KnowledgeNode[]> {
+  const nodes = await getKnowledgeNodes();
+  const structureCode = getStructureCode(code);
+
+  return nodes
+    .filter((node) => node.parentCode === code || node.parentCode === structureCode)
+    .sort((a, b) =>
+      (getStructureCode(a.code) ?? a.code).localeCompare(
+        getStructureCode(b.code) ?? b.code,
+        "zh-CN",
+      ),
+    );
+}
+
+export async function getNodeAncestors(code: string): Promise<KnowledgeNode[]> {
+  const nodes = await getKnowledgeNodes();
+  const nodesByCode = new Map(nodes.map((node) => [node.code, node]));
+  const nodesByStructureCode = new Map(
+    nodes
+      .map((node) => {
+        const structureCode = getStructureCode(node.code);
+
+        return structureCode ? ([structureCode, node] as const) : null;
+      })
+      .filter((item): item is readonly [string, KnowledgeNode] => item !== null),
+  );
+  const ancestors: KnowledgeNode[] = [];
+  let currentParentCode = getParentCode(code);
+
+  while (currentParentCode) {
+    const parent =
+      nodesByCode.get(currentParentCode) ??
+      nodesByStructureCode.get(currentParentCode);
+
+    if (!parent) {
+      break;
+    }
+
+    ancestors.unshift(parent);
+    currentParentCode = parent.parentCode;
+  }
+
+  return ancestors;
 }

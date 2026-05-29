@@ -38,9 +38,20 @@ function formatRelativePath(filePath: string) {
 }
 
 function isStandardNodeFile(node: LocalMarkdownNode) {
+  const basename = path.basename(node.filePath);
+  const isRootNode =
+    path.dirname(node.filePath) === nodesDirectory && basename.endsWith(".md");
+  const isNumberedNestedNode =
+    node.filePath.startsWith(`${nodesDirectory}${path.sep}`) &&
+    node.filePath.includes(`${path.sep}20260528清洗${path.sep}`) &&
+    /[/\\]0[1-5]-[^/\\]+模块[/\\]/.test(node.filePath) &&
+    /^\d{2}(?:-\d{2})*-/.test(basename) &&
+    basename.endsWith(".md");
+
   return (
-    path.dirname(node.filePath) === nodesDirectory &&
-    path.basename(node.filePath).endsWith(".md")
+    (isRootNode || isNumberedNestedNode) &&
+    basename !== "README.md" &&
+    basename !== "index.md"
   );
 }
 

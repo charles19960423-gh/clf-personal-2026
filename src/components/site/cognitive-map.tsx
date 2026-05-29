@@ -31,6 +31,13 @@ export function CognitiveMap({ systems }: CognitiveMapProps) {
   const selectedNode =
     activeSystem.nodes.find((node) => node.slug === selectedNodeSlug) ??
     activeSystem.nodes[0];
+  const activeNodes = useMemo(
+    () =>
+      [...activeSystem.nodes].sort((a, b) =>
+        a.code.localeCompare(b.code, "zh-CN"),
+      ),
+    [activeSystem.nodes],
+  );
 
   function switchSystem(system: SystemModule) {
     setActiveSystemKey(system.key);
@@ -105,21 +112,26 @@ export function CognitiveMap({ systems }: CognitiveMapProps) {
           </div>
           <div className="w-fit border border-zinc-300 px-4 py-3 text-sm text-zinc-500">
             <span className="font-mono text-2xl text-zinc-950">
-              {activeSystem.nodes.length}
+              {activeNodes.length}
             </span>{" "}
             个知识节点
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4">
-          {activeSystem.nodes.map((node) => (
-            <NodeListItem
-              isSelected={node.slug === selectedNode?.slug}
-              key={node.slug}
-              node={node}
-              onSelect={() => setSelectedNodeSlug(node.slug)}
-            />
-          ))}
+        <div className="mt-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs uppercase tracking-[0.28em] text-zinc-500">
+              Structure Tree
+            </p>
+            <p className="text-sm text-zinc-500">
+              按 Obsidian 编号自动识别父子层级
+            </p>
+          </div>
+          <NodeTree
+            nodes={activeNodes}
+            onSelect={setSelectedNodeSlug}
+            selectedSlug={selectedNode?.slug}
+          />
         </div>
       </div>
 
@@ -135,6 +147,10 @@ export function CognitiveMap({ systems }: CognitiveMapProps) {
           >
             <p className="font-mono text-xs uppercase tracking-[0.22em] opacity-60">
               {selectedNode.code}
+            </p>
+            <p className="mt-3 text-xs uppercase tracking-[0.22em] opacity-50">
+              Level {selectedNode.level ?? "-"} / Parent{" "}
+              {selectedNode.parentCode ?? "-"} / {selectedNode.source ?? "mock"}
             </p>
             <h3 className="mt-5 text-3xl font-semibold leading-tight">
               {selectedNode.title}
@@ -178,11 +194,103 @@ export function CognitiveMap({ systems }: CognitiveMapProps) {
   );
 }
 
+function NodeTree({
+  nodes,
+  onSelect,
+  selectedSlug,
+}: {
+  nodes: KnowledgeNode[];
+  onSelect: (slug: string) => void;
+  selectedSlug?: string;
+}) {
+  const nodesByParent = useMemo(() => {
+    const map = new Map<string, KnowledgeNode[]>();
+    const nodeCodes = new Set(nodes.map((node) => node.code));
+
+    for (const node of nodes) {
+      const parentKey =
+        node.parentCode && nodeCodes.has(node.parentCode)
+          ? node.parentCode
+          : "root";
+      map.set(parentKey, [...(map.get(parentKey) ?? []), node]);
+    }
+
+    for (const children of map.values()) {
+      children.sort((a, b) => a.code.localeCompare(b.code, "zh-CN"));
+    }
+
+    return map;
+  }, [nodes]);
+
+  const roots = nodesByParent.get("root") ?? [];
+
+  return (
+    <div className="grid gap-3">
+      {roots.map((node) => (
+        <NodeBranch
+          depth={0}
+          key={node.slug}
+          node={node}
+          nodesByParent={nodesByParent}
+          onSelect={onSelect}
+          selectedSlug={selectedSlug}
+        />
+      ))}
+    </div>
+  );
+}
+
+function NodeBranch({
+  depth,
+  node,
+  nodesByParent,
+  onSelect,
+  selectedSlug,
+}: {
+  depth: number;
+  node: KnowledgeNode;
+  nodesByParent: Map<string, KnowledgeNode[]>;
+  onSelect: (slug: string) => void;
+  selectedSlug?: string;
+}) {
+  const children = nodesByParent.get(node.code) ?? [];
+
+  return (
+    <div className={depth > 0 ? "border-l border-zinc-200 pl-4" : ""}>
+      <NodeListItem
+        childCount={children.length}
+        depth={depth}
+        isSelected={node.slug === selectedSlug}
+        node={node}
+        onSelect={() => onSelect(node.slug)}
+      />
+      {children.length > 0 ? (
+        <div className="mt-3 grid gap-3">
+          {children.map((child) => (
+            <NodeBranch
+              depth={depth + 1}
+              key={child.slug}
+              node={child}
+              nodesByParent={nodesByParent}
+              onSelect={onSelect}
+              selectedSlug={selectedSlug}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function NodeListItem({
+  childCount,
+  depth,
   isSelected,
   node,
   onSelect,
 }: {
+  childCount: number;
+  depth: number;
   isSelected: boolean;
   node: KnowledgeNode;
   onSelect: () => void;
@@ -202,6 +310,14 @@ function NodeListItem({
           {isSelected ? (
             <span className="border border-zinc-950 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-950">
               Selected
+            </span>
+          ) : null}
+          <span className="border border-zinc-300 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+            L{node.level ?? depth + 1}
+          </span>
+          {childCount > 0 ? (
+            <span className="border border-zinc-300 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+              {childCount} Children
             </span>
           ) : null}
         </div>
